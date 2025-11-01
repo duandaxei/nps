@@ -1,13 +1,14 @@
 package controllers
 
 import (
+	"strings"
+	"time"
+
 	"ehang.io/nps/lib/common"
 	"ehang.io/nps/lib/file"
 	"ehang.io/nps/lib/rate"
 	"ehang.io/nps/server"
 	"github.com/astaxie/beego"
-	"strings"
-	"time"
 )
 
 type ClientController struct {
@@ -69,6 +70,9 @@ func (s *ClientController) Add() {
 				FlowLimit:  int64(s.GetIntNoErr("flow_limit")),
 			},
 			BlackIpList: RemoveRepeatedElement(strings.Split(s.getEscapeString("blackiplist"), "\r\n")),
+			IpWhite:     s.GetBoolNoErr("ipwhite"),
+			IpWhitePass: s.getEscapeString("ipwhitepass"),
+			IpWhiteList: RemoveRepeatedElement(strings.Split(s.getEscapeString("ipwhitelist"), "\r\n")),
 			CreateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		}
 		if err := file.GetDb().NewClient(t); err != nil {
@@ -102,6 +106,7 @@ func (s *ClientController) Edit() {
 		} else {
 			s.Data["c"] = c
 			s.Data["BlackIpList"] = strings.Join(c.BlackIpList, "\r\n")
+			s.Data["IpWhiteList"] = strings.Join(c.IpWhiteList, "\r\n")
 		}
 		s.SetInfo("edit client")
 		s.display()
@@ -139,6 +144,9 @@ func (s *ClientController) Edit() {
 			}
 			c.WebPassword = s.getEscapeString("web_password")
 			c.ConfigConnAllow = s.GetBoolNoErr("config_conn_allow")
+			c.IpWhite = s.GetBoolNoErr("ipwhite")
+			c.IpWhitePass = s.getEscapeString("ipwhitepass")
+			c.IpWhiteList = RemoveRepeatedElement(strings.Split(s.getEscapeString("ipwhitelist"), "\r\n"))
 			if c.Rate != nil {
 				c.Rate.Stop()
 			}
@@ -160,6 +168,10 @@ func (s *ClientController) Edit() {
 func RemoveRepeatedElement(arr []string) (newArr []string) {
 	newArr = make([]string, 0)
 	for i := 0; i < len(arr); i++ {
+		// 过滤空IP
+		if strings.TrimSpace(arr[i]) == "" {
+			continue
+		}
 		repeat := false
 		for j := i + 1; j < len(arr); j++ {
 			if arr[i] == arr[j] {
